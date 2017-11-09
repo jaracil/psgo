@@ -1,3 +1,4 @@
+// Package psgo is a lightweight implementation of pub/sub paradigm.
 package psgo
 
 import (
@@ -5,18 +6,21 @@ import (
 	"sync"
 )
 
+// Msg is the message sent to subscribers
 type Msg struct {
-	To  string
-	Res string
-	Dat interface{}
-	Old bool
+	To  string      // Target path i.e. "system.status"
+	Res string      // Optional response path.
+	Dat interface{} // Message payload
+	Old bool        // This message is old (See Persist option in MsgOpts)
 }
 
+// MsgOpts contains optional message flags
 type MsgOpts struct {
-	Persist     bool
-	NoPropagate bool
+	Persist     bool // New subscribers will receive the last message sent in subscription path
+	NoPropagate bool // No propagate message to path ancestors
 }
 
+// Subscriber is the type that tracks subscriptions
 type Subscriber struct {
 	subs map[string]bool
 	f    func(msg *Msg)
@@ -27,10 +31,16 @@ var subscriptions = map[string]map[*Subscriber]bool{}
 var oldMessages = map[string]*Msg{}
 var psLock sync.Mutex
 
+// NewSubscriber creates new initialized subscriber
+//
+// f param is the function called when message arrives
 func NewSubscriber(f func(msg *Msg)) *Subscriber {
 	return &Subscriber{subs: map[string]bool{}, f: f}
 }
 
+// Subscribe adds subscriptions to subscriber
+//
+// i.e. subscriber.Subscribe("foo.bar", "fizz.buzz")
 func (su *Subscriber) Subscribe(paths ...string) {
 	su.lock.Lock()
 	defer su.lock.Unlock()
@@ -50,6 +60,9 @@ func (su *Subscriber) Subscribe(paths ...string) {
 	return
 }
 
+// Unsubscribe removes subscriptions from subscriber
+//
+// i.e. subscriber.Unsubscribe("foo.bar", "fizz.buzz")
 func (su *Subscriber) Unsubscribe(paths ...string) {
 	su.lock.Lock()
 	defer su.lock.Unlock()
@@ -68,10 +81,12 @@ func (su *Subscriber) Unsubscribe(paths ...string) {
 	return
 }
 
+// UnsubscribeAll removes all subscriptions
 func (su *Subscriber) UnsubscribeAll() {
 	su.Unsubscribe(su.Subscriptions()...)
 }
 
+// Subscriptions returns a slice with all subscription paths
 func (su *Subscriber) Subscriptions() (ret []string) {
 	su.lock.Lock()
 	defer su.lock.Unlock()
@@ -81,24 +96,31 @@ func (su *Subscriber) Subscriptions() (ret []string) {
 	return
 }
 
+// NumSubscriptions returns the number of subscriber alive subscriptions
 func (su *Subscriber) NumSubscriptions() int {
 	su.lock.Lock()
 	defer su.lock.Unlock()
 	return len(su.subs)
 }
 
+// NumSubscribers returns the number of subscribers attached to the path
 func NumSubscribers(path string) int {
 	psLock.Lock()
 	defer psLock.Unlock()
 	return len(subscriptions[path])
 }
 
+// Publish sends the message to all subscriptors attached to the message tartget path (Msg.To).
+//
+// If MsgOpts.NoPropagate is true, msg is not sent to subscribers attached to ancestor paths.
+// i.e. Publish(&psgo.Msg{To:"A.B", Dat:"foo"}, &psgo.MsgOpts{NoPropagate: true}) will send message
+// to subscribers attached to "A.B" but no "A"
 func Publish(msg *Msg, opts ...*MsgOpts) (cnt int) {
 	var op *MsgOpts
 	if len(opts) > 0 {
 		op = opts[0]
 	} else {
-		op = &MsgOpts{} // Defaul options
+		op = &MsgOpts{} // Default options
 	}
 	psLock.Lock()
 	defer psLock.Unlock()
