@@ -13,8 +13,8 @@ type Msg struct {
 }
 
 type MsgOpts struct {
-	Persist bool
-	NoRec   bool
+	Persist     bool
+	NoPropagate bool
 }
 
 type Subscriber struct {
@@ -117,7 +117,7 @@ func Publish(msg *Msg, opts ...*MsgOpts) (cnt int) {
 				go su.f(msg)
 			}
 		}
-		if op.NoRec {
+		if op.NoPropagate {
 			break
 		}
 		chunks = chunks[:len(chunks)-1]

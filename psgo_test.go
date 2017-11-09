@@ -116,7 +116,7 @@ func TestPublishRecursive(t *testing.T) {
 		t.Errorf("ch1 must be empty")
 	}
 
-	Publish(&Msg{To: "cartas.caballo", Dat: 2}, &MsgOpts{NoRec: true})
+	Publish(&Msg{To: "cartas.caballo", Dat: 2}, &MsgOpts{NoPropagate: true})
 	msg = <-ch1
 	if msg.To != "cartas.caballo" {
 		t.Errorf("Target error, must be cartas.caballo")
