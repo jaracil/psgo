@@ -18,6 +18,7 @@ type Msg struct {
 type MsgOpts struct {
 	Persist     bool // New subscribers will receive the last message sent in subscription path
 	NoPropagate bool // No propagate message to path ancestors
+	Sync        bool // If false executes each callback in its own goroutine
 }
 
 // Subscriber is the type that tracks subscriptions
@@ -136,7 +137,11 @@ func Publish(msg *Msg, opts ...*MsgOpts) (cnt int) {
 		if subs != nil {
 			for su := range subs {
 				cnt++
-				go su.f(msg)
+				if op.Sync {
+					su.f(msg)
+				} else {
+					go su.f(msg)
+				}
 			}
 		}
 		if op.NoPropagate {
