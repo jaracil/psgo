@@ -2,7 +2,6 @@ package psjs
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
@@ -24,20 +23,8 @@ type MsgOpts struct {
 	Sync        bool `js:"sync"`
 }
 
-type Promise struct {
-	*js.Object
-	State  string
-	Then   func(interface{})
-	Catch  func(error)
-	Answer interface{}
-}
-
 var idCnt = 0
 var subs = map[int]*psgo.Subscriber{}
-var timeoutError = errors.New("ERROR_TIMEOUT")
-
-const RESOLVE_STATE = "resolve"
-const REJECT_STATE = "reject"
 
 func init() {
 	ob := js.Global.Get("Object").New()
@@ -108,48 +95,23 @@ func numSubscribers(path string) int {
 	return psgo.NumSubscribers(path)
 }
 
-func call(path string, value interface{}, timeout int64) *Promise {
-	prom := &Promise{Object: js.Global.Get("Object").New()}
-	prom.Set("then", func(a func(interface{})) *Promise {
-		prom.Then = a
-		if prom.State == RESOLVE_STATE {
-			prom.Then(prom.Answer)
+func call(path string, value interface{}, timeout int64) *js.Object {
+	promise := js.Global.Get("Promise").New(func(res, rej func(interface{})) {
+		ctx := context.Background()
+		var canFunc context.CancelFunc
+		if timeout > 0 {
+			ctx, canFunc = context.WithTimeout(ctx, time.Millisecond*time.Duration(timeout))
 		}
-		return prom
-	})
-	prom.Set("catch", func(a func(error)) *Promise {
-		prom.Catch = a
-		if prom.State == REJECT_STATE {
-			prom.Catch(timeoutError)
-		}
-		return prom
-	})
 
-	ctx := context.Background()
-	var canFunc context.CancelFunc
-	if timeout > 0 {
-		ctx, canFunc = context.WithTimeout(ctx, time.Millisecond*time.Duration(timeout))
-	}
-
-	go func(prom *Promise, ctx context.Context, canFunc context.CancelFunc, path string, value interface{}) {
-		if canFunc != nil {
+		go func() {
 			defer canFunc()
-		}
-
-		res, err := psgo.Call(ctx, path, value)
-		if err != nil {
-			prom.State = REJECT_STATE
-			if prom.Catch != nil {
-				prom.Catch(err)
+			response, err := psgo.Call(ctx, path, value)
+			if err != nil {
+				rej(err.Error())
+			} else {
+				res(response)
 			}
-		} else {
-			prom.State = RESOLVE_STATE
-			prom.Answer = res
-			if prom.Then != nil {
-				prom.Then(res)
-			}
-		}
-	}(prom, ctx, canFunc, path, value)
-
-	return prom
+		}()
+	})
+	return promise
 }
