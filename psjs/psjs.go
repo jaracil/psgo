@@ -104,7 +104,10 @@ func call(path string, value interface{}, timeout int64) *js.Object {
 		}
 
 		go func() {
-			defer canFunc()
+			if canFunc != nil {
+				defer canFunc()
+			}
+
 			response, err := psgo.Call(ctx, path, value)
 			if err != nil {
 				rej(err.Error())
