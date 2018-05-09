@@ -1,6 +1,9 @@
 package psjs
 
 import (
+	"context"
+	"time"
+
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/jaracil/psgo"
 )
@@ -35,7 +38,7 @@ func init() {
 	ob.Set("close", close)
 	ob.Set("publish", publish)
 	ob.Set("numSubscribers", numSubscribers)
-
+	ob.Set("call", call)
 }
 
 func newSubscriber(f func(m *Msg)) int {
@@ -90,4 +93,28 @@ func publish(msg *Msg, opts ...*MsgOpts) int {
 
 func numSubscribers(path string) int {
 	return psgo.NumSubscribers(path)
+}
+
+func call(path string, value interface{}, timeout int64) *js.Object {
+	promise := js.Global.Get("Promise").New(func(res, rej func(interface{})) {
+		ctx := context.Background()
+		var canFunc context.CancelFunc
+		if timeout > 0 {
+			ctx, canFunc = context.WithTimeout(ctx, time.Millisecond*time.Duration(timeout))
+		}
+
+		go func() {
+			if canFunc != nil {
+				defer canFunc()
+			}
+
+			response, err := psgo.Call(ctx, path, value)
+			if err != nil {
+				rej(err.Error())
+			} else {
+				res(response)
+			}
+		}()
+	})
+	return promise
 }
