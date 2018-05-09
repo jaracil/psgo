@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // Msg is the message sent to subscribers
@@ -35,13 +36,9 @@ var subscriptions = map[string]map[*Subscriber]bool{}
 var oldMessages = map[string]*Msg{}
 var psLock sync.Mutex
 var respCnt int64
-var respCntLock sync.Mutex
 
 func getRespCnt() int64 {
-	respCntLock.Lock()
-	defer respCntLock.Unlock()
-	respCnt++
-	return respCnt
+	return atomic.AddInt64(&respCnt, 1)
 }
 
 // Answer to message sender (has not empty msg.Res field)
