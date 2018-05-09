@@ -176,7 +176,7 @@ func Pub(to string, dat interface{}, opts ...*MsgOpts) {
 // Call builds a Msg with "to" and "dat", publish it and waits for response or contex cancel
 func Call(ctx context.Context, to string, dat interface{}, opts ...*MsgOpts) (interface{}, error) {
 	retPath := fmt.Sprintf("$ret.%d", getRespCnt())
-	ch := make(chan *Msg)
+	ch := make(chan *Msg, 1)
 	su := NewSubscriber(func(msg *Msg) {
 		ch <- msg
 	})
