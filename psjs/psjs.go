@@ -3,7 +3,6 @@ package psjs
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
@@ -134,13 +133,11 @@ func call(path string, value interface{}, timeout int64) *Promise {
 
 	go func(prom *Promise, ctx context.Context, canFunc context.CancelFunc, path string, value interface{}) {
 		if canFunc != nil {
-			fmt.Println(canFunc)
 			defer canFunc()
 		}
 
 		res, err := psgo.Call(ctx, path, value)
 		if err != nil {
-			fmt.Println("Error: ", err)
 			prom.State = REJECT_STATE
 			if prom.Catch != nil {
 				prom.Catch(err)
