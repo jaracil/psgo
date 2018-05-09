@@ -1,7 +1,9 @@
 package psgo
 
 import (
+	"context"
 	"testing"
+	"time"
 )
 
 func TestSubscribeUnsubscribe(t *testing.T) {
@@ -129,5 +131,41 @@ func TestPublishRecursive(t *testing.T) {
 	}
 	if len(ch2) > 0 {
 		t.Errorf("ch2 must be empty")
+	}
+}
+
+func TestCall(t *testing.T) {
+	f1 := func(msg *Msg) {
+		msg.Answer(msg.Dat)
+	}
+	su1 := NewSubscriber(f1)
+	su1.Subscribe("root.f1")
+	defer su1.UnsubscribeAll()
+	res, err := Call(context.Background(), "root.f1", "Hello")
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+	if res.(string) != "Hello" {
+		t.Errorf("res must be (Hello)")
+	}
+}
+
+func TestCallTimeout(t *testing.T) {
+	f1 := func(msg *Msg) {
+		time.Sleep(time.Millisecond * 20)
+		msg.Answer(msg.Dat)
+	}
+	su1 := NewSubscriber(f1)
+	su1.Subscribe("root.f1")
+	defer su1.UnsubscribeAll()
+	ctx, canFun := context.WithTimeout(context.Background(), time.Millisecond*10)
+	defer canFun()
+	res, err := Call(ctx, "root.f1", "Hello")
+	if err == nil {
+		t.Errorf("Expected context done")
+	}
+
+	if res != nil {
+		t.Errorf("Expected nil result")
 	}
 }
