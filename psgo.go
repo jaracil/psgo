@@ -2,6 +2,9 @@
 package psgo
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -31,6 +34,22 @@ type Subscriber struct {
 var subscriptions = map[string]map[*Subscriber]bool{}
 var oldMessages = map[string]*Msg{}
 var psLock sync.Mutex
+var respCnt int64
+var respCntLock sync.Mutex
+
+func getRespCnt() int64 {
+	respCntLock.Lock()
+	defer respCntLock.Unlock()
+	respCnt++
+	return respCnt
+}
+
+// Answer to message sender (has not empty msg.Res field)
+func (msg Msg) Answer(dat interface{}) {
+	if msg.Res != "" {
+		Publish(&Msg{To: msg.Res, Dat: dat})
+	}
+}
 
 // NewSubscriber creates new initialized subscriber
 //
@@ -150,4 +169,28 @@ func Publish(msg *Msg, opts ...*MsgOpts) (cnt int) {
 		chunks = chunks[:len(chunks)-1]
 	}
 	return
+}
+
+// Pub builds a Msg with "to" and "dat" and publish it with the options provided
+func Pub(to string, dat interface{}, opts ...*MsgOpts) {
+	Publish(&Msg{To: to, Dat: dat}, opts...)
+}
+
+// Call builds a Msg with "to" and "dat", publish it and waits for response or contex cancel
+func Call(ctx context.Context, to string, dat interface{}, opts ...*MsgOpts) (interface{}, error) {
+	retPath := fmt.Sprintf("$ret.%d", getRespCnt())
+	ch := make(chan *Msg)
+	su := NewSubscriber(func(msg *Msg) {
+		ch <- msg
+	})
+	su.Subscribe(retPath)
+	defer su.UnsubscribeAll()
+	m := &Msg{Res: retPath, To: to, Dat: dat}
+	Publish(m, opts...)
+	select {
+	case res := <-ch:
+		return res.Dat, nil
+	case <-ctx.Done():
+		return nil, errors.New("Context done")
+	}
 }
