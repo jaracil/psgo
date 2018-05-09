@@ -1,7 +1,7 @@
 package psjs
 
 import (
-	"crypto/rand"
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -27,17 +27,18 @@ type MsgOpts struct {
 
 type Promise struct {
 	*js.Object
-	Done         bool
-	ThenPending  bool
-	CatchPending bool
-	Then         func(*psgo.Msg)
-	Catch        func(error)
-	Answer       *psgo.Msg
+	State  string
+	Then   func(interface{})
+	Catch  func(error)
+	Answer interface{}
 }
 
 var idCnt = 0
 var subs = map[int]*psgo.Subscriber{}
 var timeoutError = errors.New("ERROR_TIMEOUT")
+
+const RESOLVE_STATE = "resolve"
+const REJECT_STATE = "reject"
 
 func init() {
 	ob := js.Global.Get("Object").New()
@@ -110,56 +111,48 @@ func numSubscribers(path string) int {
 
 func call(path string, value interface{}, timeout int64) *Promise {
 	prom := &Promise{Object: js.Global.Get("Object").New()}
-	prom.Set("then", func(a func(msg *psgo.Msg)) *Promise {
+	prom.Set("then", func(a func(interface{})) *Promise {
 		prom.Then = a
-		if !prom.Done && prom.ThenPending {
+		if prom.State == RESOLVE_STATE {
 			prom.Then(prom.Answer)
 		}
 		return prom
 	})
 	prom.Set("catch", func(a func(error)) *Promise {
 		prom.Catch = a
-		if !prom.Done && prom.CatchPending {
+		if prom.State == REJECT_STATE {
 			prom.Catch(timeoutError)
 		}
 		return prom
 	})
 
-	token := createUniquePath()
+	ctx := context.Background()
+	var canFunc context.CancelFunc
+	if timeout > 0 {
+		ctx, canFunc = context.WithTimeout(ctx, time.Millisecond*time.Duration(timeout))
+	}
 
-	timeoutTimer := time.AfterFunc(time.Duration(timeout)*time.Second, func() {
-		if prom.Catch == nil {
-			prom.CatchPending = true
-		} else {
-			prom.Catch(timeoutError)
+	go func(prom *Promise, ctx context.Context, canFunc context.CancelFunc, path string, value interface{}) {
+		if canFunc != nil {
+			fmt.Println(canFunc)
+			defer canFunc()
 		}
-	})
 
-	go func(prom *Promise, timeoutTimer *time.Timer) {
-
-		var subscriber *psgo.Subscriber
-		subscriber = psgo.NewSubscriber(func(msg *psgo.Msg) {
-			timeoutTimer.Stop()
-
-			if prom.Then == nil {
-				prom.ThenPending = true
-				prom.Answer = msg
-			} else {
-				prom.Then(msg)
+		res, err := psgo.Call(ctx, path, value)
+		if err != nil {
+			fmt.Println("Error: ", err)
+			prom.State = REJECT_STATE
+			if prom.Catch != nil {
+				prom.Catch(err)
 			}
-
-			subscriber.Unsubscribe(token)
-		})
-		subscriber.Subscribe(token)
-
-		psgo.Publish(&psgo.Msg{To: path, Dat: value, Res: token})
-	}(prom, timeoutTimer)
+		} else {
+			prom.State = RESOLVE_STATE
+			prom.Answer = res
+			if prom.Then != nil {
+				prom.Then(res)
+			}
+		}
+	}(prom, ctx, canFunc, path, value)
 
 	return prom
-}
-
-func createUniquePath() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return fmt.Sprintf("calls.%x", b)
 }

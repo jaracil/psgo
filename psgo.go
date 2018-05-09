@@ -18,10 +18,6 @@ type Msg struct {
 	Old bool        // This message is old (See Persist option in MsgOpts)
 }
 
-func (msg Msg) Answer(dat interface{}) {
-	Publish(&Msg{To: msg.Res, Dat: dat}, &MsgOpts{NoPropagate: true})
-}
-
 // MsgOpts contains optional message flags
 type MsgOpts struct {
 	Persist     bool // New subscribers will receive the last message sent in subscription path
