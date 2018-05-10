@@ -2,7 +2,6 @@ package psjs
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
@@ -84,7 +83,6 @@ func close(id int) {
 }
 
 func publish(msg *Msg, opts ...*MsgOpts) int {
-	fmt.Println(msg)
 	m := &psgo.Msg{To: msg.To, Res: msg.Res, Dat: msg.Dat}
 	if len(opts) > 0 {
 		opt := opts[0]
