@@ -2,6 +2,7 @@ package psjs
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
@@ -37,6 +38,7 @@ func init() {
 	ob.Set("subscriptions", subscriptions)
 	ob.Set("close", close)
 	ob.Set("publish", publish)
+	ob.Set("pub", pub)
 	ob.Set("numSubscribers", numSubscribers)
 	ob.Set("call", call)
 }
@@ -82,6 +84,7 @@ func close(id int) {
 }
 
 func publish(msg *Msg, opts ...*MsgOpts) int {
+	fmt.Println(msg)
 	m := &psgo.Msg{To: msg.To, Res: msg.Res, Dat: msg.Dat}
 	if len(opts) > 0 {
 		opt := opts[0]
@@ -89,6 +92,13 @@ func publish(msg *Msg, opts ...*MsgOpts) int {
 		return psgo.Publish(m, o)
 	}
 	return psgo.Publish(m)
+}
+
+func pub(to string, dat interface{}, opts ...*MsgOpts) {
+	msg := &Msg{Object: js.Global.Get("Object").New()}
+	msg.To = to
+	msg.Dat = dat
+	publish(msg, opts...)
 }
 
 func numSubscribers(path string) int {
