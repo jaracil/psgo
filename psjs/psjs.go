@@ -37,6 +37,7 @@ func init() {
 	ob.Set("subscriptions", subscriptions)
 	ob.Set("close", close)
 	ob.Set("publish", publish)
+	ob.Set("pub", pub)
 	ob.Set("numSubscribers", numSubscribers)
 	ob.Set("call", call)
 }
@@ -89,6 +90,13 @@ func publish(msg *Msg, opts ...*MsgOpts) int {
 		return psgo.Publish(m, o)
 	}
 	return psgo.Publish(m)
+}
+
+func pub(to string, dat interface{}, opts ...*MsgOpts) {
+	msg := &Msg{Object: js.Global.Get("Object").New()}
+	msg.To = to
+	msg.Dat = dat
+	publish(msg, opts...)
 }
 
 func numSubscribers(path string) int {
