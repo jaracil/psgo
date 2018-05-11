@@ -15,6 +15,7 @@ type Msg struct {
 	To  string      // Target path i.e. "system.status"
 	Res string      // Optional response path.
 	Dat interface{} // Message payload
+	Err error       // Error
 	Old bool        // This message is old (See Persist option in MsgOpts)
 }
 
@@ -37,14 +38,36 @@ var oldMessages = map[string]*Msg{}
 var psLock sync.Mutex
 var respCnt int64
 
+type ErrWithDataInterface interface {
+	Error() string
+	Data() interface{}
+}
+
+type ErrWithData struct {
+	str string
+	dat interface{}
+}
+
+func (e *ErrWithData) Error() string {
+	return e.str
+}
+
+func (e *ErrWithData) Data() interface{} {
+	return e.dat
+}
+
+func NewErrWithdata(str string, dat interface{}) *ErrWithData {
+	return &ErrWithData{str: str, dat: dat}
+}
+
 func getRespCnt() int64 {
 	return atomic.AddInt64(&respCnt, 1)
 }
 
 // Answer to message sender (has not empty msg.Res field)
-func (msg Msg) Answer(dat interface{}) {
+func (msg Msg) Answer(dat interface{}, err error) {
 	if msg.Res != "" {
-		Publish(&Msg{To: msg.Res, Dat: dat})
+		Publish(&Msg{To: msg.Res, Dat: dat, Err: err})
 	}
 }
 
@@ -186,6 +209,9 @@ func Call(ctx context.Context, to string, dat interface{}, opts ...*MsgOpts) (in
 	Publish(m, opts...)
 	select {
 	case res := <-ch:
+		if res.Err != nil {
+			return nil, res.Err
+		}
 		return res.Dat, nil
 	case <-ctx.Done():
 		return nil, errors.New("Context done")

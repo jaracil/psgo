@@ -136,7 +136,7 @@ func TestPublishRecursive(t *testing.T) {
 
 func TestCall(t *testing.T) {
 	f1 := func(msg *Msg) {
-		msg.Answer(msg.Dat)
+		msg.Answer(msg.Dat, nil)
 	}
 	su1 := NewSubscriber(f1)
 	su1.Subscribe("root.f1")
@@ -153,7 +153,7 @@ func TestCall(t *testing.T) {
 func TestCallTimeout(t *testing.T) {
 	f1 := func(msg *Msg) {
 		time.Sleep(time.Millisecond * 20)
-		msg.Answer(msg.Dat)
+		msg.Answer(msg.Dat, nil)
 	}
 	su1 := NewSubscriber(f1)
 	su1.Subscribe("root.f1")

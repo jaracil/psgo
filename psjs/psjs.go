@@ -119,7 +119,11 @@ func call(path string, value interface{}, timeout int64) *js.Object {
 
 			response, err := psgo.Call(ctx, path, value)
 			if err != nil {
-				rej(err.Error())
+				if errData, ok := err.(psgo.ErrWithDataInterface); ok {
+					rej(errData.Data())
+				} else {
+					rej(err.Error())
+				}
 			} else {
 				res(response)
 			}
