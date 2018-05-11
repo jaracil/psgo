@@ -40,6 +40,7 @@ func init() {
 	ob.Set("pub", pub)
 	ob.Set("numSubscribers", numSubscribers)
 	ob.Set("call", call)
+	ob.Set("subscribeFuncs", subscribeFuncs)
 }
 
 func newSubscriber(f func(m *Msg)) int {
@@ -125,4 +126,19 @@ func call(path string, value interface{}, timeout int64) *js.Object {
 		}()
 	})
 	return promise
+}
+
+// subscribeFuncs subscribes using a map with paths as keys and function to execute for each as values. Returns subscription id
+func subscribeFuncs(handlers map[string]func(m *Msg)) int {
+	id := newSubscriber(func(msg *Msg) {
+		handlers[msg.To](msg)
+	})
+
+	paths := []string{}
+	for k := range handlers {
+		paths = append(paths, k)
+	}
+
+	subscribe(id, paths...)
+	return id
 }
