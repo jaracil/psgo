@@ -41,6 +41,7 @@ func init() {
 	ob.Set("numSubscribers", numSubscribers)
 	ob.Set("call", call)
 	ob.Set("subscribeFuncs", subscribeFuncs)
+	ob.Set("answer", answer)
 }
 
 func newSubscriber(f func(m *Msg)) int {
@@ -145,4 +146,10 @@ func subscribeFuncs(handlers map[string]func(m *Msg)) int {
 
 	subscribe(id, paths...)
 	return id
+}
+
+func answer(msg *Msg, res interface{}, err error) {
+	m := &psgo.Msg{To: msg.To, Res: msg.Res, Dat: msg.Dat}
+	m.Answer(res, err)
+	return
 }
