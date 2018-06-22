@@ -152,6 +152,9 @@ func subscribeFuncs(handlers map[string]func(m *Msg)) int {
 
 func answer(msg *Msg, res, err interface{}) {
 	m := &psgo.Msg{To: msg.To, Res: msg.Res, Dat: msg.Dat}
-	m.Answer(res, errors.New(fmt.Sprintf("%v", err)))
+	if err != nil {
+		m.Answer(res, errors.New(fmt.Sprintf("%v", err)))
+	}
+	m.Answer(res, nil)
 	return
 }
