@@ -2,6 +2,8 @@ package psjs
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gopherjs/gopherjs/js"
@@ -148,8 +150,8 @@ func subscribeFuncs(handlers map[string]func(m *Msg)) int {
 	return id
 }
 
-func answer(msg *Msg, res interface{}, err error) {
+func answer(msg *Msg, res, err interface{}) {
 	m := &psgo.Msg{To: msg.To, Res: msg.Res, Dat: msg.Dat}
-	m.Answer(res, err)
+	m.Answer(res, errors.New(fmt.Sprintf("%v", err)))
 	return
 }
