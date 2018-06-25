@@ -138,7 +138,9 @@ func call(path string, value interface{}, timeout int64) *js.Object {
 // subscribeFuncs subscribes using a map with paths as keys and function to execute for each as values. Returns subscription id
 func subscribeFuncs(handlers map[string]func(m *Msg)) int {
 	id := newSubscriber(func(msg *Msg) {
-		handlers[msg.To](msg)
+		if handler := handlers[msg.To]; handler != nil {
+			handler(msg)
+		}
 	})
 
 	paths := []string{}
@@ -152,9 +154,11 @@ func subscribeFuncs(handlers map[string]func(m *Msg)) int {
 
 func answer(msg *Msg, res, err interface{}) {
 	m := &psgo.Msg{To: msg.To, Res: msg.Res, Dat: msg.Dat}
-	if err != nil {
-		m.Answer(res, errors.New(fmt.Sprintf("%v", err)))
-	}
-	m.Answer(res, nil)
-	return
+	go func() {
+		if err != nil {
+			m.Answer(res, errors.New(fmt.Sprintf("%v", err)))
+		} else {
+			m.Answer(res, nil)
+		}
+	}()
 }
