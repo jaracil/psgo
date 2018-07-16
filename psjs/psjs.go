@@ -91,9 +91,11 @@ func publish(msg *Msg, opts ...*MsgOpts) int {
 	if len(opts) > 0 {
 		opt := opts[0]
 		o := &psgo.MsgOpts{Persist: opt.Persist, NoPropagate: opt.NoPropagate, Sync: opt.Sync}
-		return psgo.Publish(m, o)
+		go psgo.Publish(m, o)
+		return 0
 	}
-	return psgo.Publish(m)
+	go psgo.Publish(m)
+	return 0
 }
 
 func pub(to string, dat interface{}, opts ...*MsgOpts) {
